@@ -1,0 +1,181 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const cats = ['cocos', 'unity', 'programming', 'architecture', 'network', 'soft-skills'];
+  return cats.map((category) => ({ params: { category } }));
+}
+
+const { category } = Astro.params;
+const base = import.meta.env.BASE_URL;
+const allQuestions = await getCollection('questions', (q) => q.data.category === category);
+
+const catMeta: Record<string, { name: string; icon: string }> = {
+  cocos: { name: 'Cocos Creator', icon: '🔴' },
+  unity: { name: 'Unity', icon: '⚫' },
+  programming: { name: '编程基础', icon: '🔵' },
+  architecture: { name: '架构设计', icon: '🟣' },
+  network: { name: '网络同步', icon: '🟡' },
+  'soft-skills': { name: '非技术面', icon: '🟢' },
+};
+
+const meta = catMeta[category!] || { name: category, icon: '📄' };
+
+// Build question data with HTML content
+const questionData = [];
+for (const q of allQuestions) {
+  let html = '';
+  if (q.rendered && q.rendered.html) {
+    html = q.rendered.html;
+  } else {
+    // Fallback: use raw markdown body
+    html = q.body || '';
+  }
+  questionData.push({
+    slug: q.id,
+    title: q.data.title,
+    category: q.data.category,
+    level: q.data.level,
+    tags: q.data.tags,
+    hint: q.data.hint,
+    answerHtml: html,
+    related: q.data.related,
+  });
+}
+
+questionData.sort((a, b) => a.level - b.level || a.slug.localeCompare(b.slug));
+
+// Collect unique tags
+const allTags = [...new Set(questionData.flatMap(q => q.tags))].sort();
+---
+
+<BaseLayout title={meta.name}>
+  <div class="breadcrumb">
+    <a href={base}>首页</a>
+    <span>›</span>
+    <span>{meta.name}</span>
+  </div>
+
+  <!-- Server-rendered filter bar -->
+  <div id="filter-root" data-tags={JSON.stringify(allTags)} data-questions={JSON.stringify(questionData.map(q => ({ slug: q.slug, title: q.title, level: q.level, tags: q.tags, hint: q.hint })))}>
+  </div>
+
+  <!-- Server-rendered QA cards with inline expand/collapse -->
+  <div id="qa-list">
+    <div class="section-title">
+      <span>{meta.icon}</span>
+      <span>{meta.name}</span>
+      <span style="font-size:14px;font-weight:400;color:var(--text-muted)">
+        （{questionData.length} 题）
+      </span>
+    </div>
+
+    <div class="filter-bar" id="filter-bar">
+      <span style="font-size:13px;color:var(--text-muted);margin-right:4px">难度：</span>
+      {[1,2,3,4].map((lv) => {
+        const labels = { 1: '📗 基础', 2: '📘 进阶', 3: '📕 架构', 4: '📙 深度' };
+        return <button class="filter-chip" data-filter-level={lv}>{labels[lv]}</button>;
+      })}
+      {allTags.length > 0 && (
+        <>
+          <span style="font-size:13px;color:var(--text-muted);margin-left:12px;margin-right:4px">标签：</span>
+          {allTags.map((tag) => (
+            <button class="filter-chip" data-filter-tag={tag}>{tag}</button>
+          ))}
+        </>
+      )}
+    </div>
+
+    {questionData.map((q) => {
+      const levelLabels = { 1: '📗 基础', 2: '📘 进阶', 3: '📕 架构', 4: '📙 深度' };
+      return (
+        <div class="qa-card" data-level={q.level} data-tags={q.tags.join(',')}>
+          <div class="qa-question" data-toggle>
+            <div class="qa-q-text">
+              <div class="qa-q-title">{q.title}</div>
+              <div class="qa-q-meta">
+                <span class={`level-badge level-${q.level}`} data-level={q.level}>
+                  {levelLabels[q.level]}
+                </span>
+                {q.tags.map((t) => (
+                  <span class="tag">{t}</span>
+                ))}
+              </div>
+              {q.hint && (
+                <div class="qa-hint" style="font-size:13px;color:var(--text-muted);margin-top:6px">
+                  💡 {q.hint}
+                </div>
+              )}
+            </div>
+            <button class="qa-toggle-btn" type="button">🔽 查看</button>
+          </div>
+          <div class="qa-answer" data-answer>
+            <Fragment set:html={q.answerHtml} />
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</BaseLayout>
+
+<script>
+  // Expand / collapse
+  document.querySelectorAll('[data-toggle]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const card = el.closest('.qa-card')!;
+      const answer = card.querySelector('[data-answer]') as HTMLElement;
+      const btn = el.querySelector('.qa-toggle-btn')!;
+      const hint = card.querySelector('.qa-hint') as HTMLElement | null;
+      const isOpen = answer.classList.contains('open');
+      answer.classList.toggle('open');
+      btn.textContent = isOpen ? '🔽 查看' : '🔼 收起';
+      if (hint) hint.style.display = isOpen ? '' : 'none';
+    });
+  });
+
+  // Filter
+  const filterBar = document.getElementById('filter-bar')!;
+  let activeLevel: number | null = null;
+  let activeTag: string | null = null;
+
+  filterBar.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.filter-chip');
+    if (!btn) return;
+
+    if (btn.hasAttribute('data-filter-level')) {
+      const lv = parseInt(btn.getAttribute('data-filter-level')!);
+      if (activeLevel === lv) {
+        activeLevel = null;
+        btn.classList.remove('active');
+      } else {
+        filterBar.querySelectorAll('[data-filter-level]').forEach(b => b.classList.remove('active'));
+        activeLevel = lv;
+        btn.classList.add('active');
+      }
+    }
+
+    if (btn.hasAttribute('data-filter-tag')) {
+      const tag = btn.getAttribute('data-filter-tag')!;
+      if (activeTag === tag) {
+        activeTag = null;
+        btn.classList.remove('active');
+      } else {
+        filterBar.querySelectorAll('[data-filter-tag]').forEach(b => b.classList.remove('active'));
+        activeTag = tag;
+        btn.classList.add('active');
+      }
+    }
+
+    // Apply filters
+    document.querySelectorAll('.qa-card').forEach((card) => {
+      const el = card as HTMLElement;
+      const level = parseInt(el.dataset.level!);
+      const tags = el.dataset.tags?.split(',') || [];
+      let show = true;
+      if (activeLevel && level !== activeLevel) show = false;
+      if (activeTag && !tags.includes(activeTag)) show = false;
+      el.style.display = show ? '' : 'none';
+    });
+  });
+</script>

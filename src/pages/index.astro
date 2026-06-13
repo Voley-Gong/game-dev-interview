@@ -1,0 +1,63 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const allQuestions = await getCollection('questions');
+const base = import.meta.env.BASE_URL;
+
+const categories = [
+  { id: 'cocos', name: 'Cocos Creator', icon: '🔴', desc: '引擎原理、渲染、性能优化、热更新' },
+  { id: 'unity', name: 'Unity', icon: '⚫', desc: '核心 API、SRP、GC、AssetBundle' },
+  { id: 'programming', name: '编程基础', icon: '🔵', desc: '语言特性、设计模式、数据结构与算法' },
+  { id: 'architecture', name: '架构设计', icon: '🟣', desc: '系统设计、框架搭建、工具链' },
+  { id: 'network', name: '网络同步', icon: '🟡', desc: '协议、帧同步 vs 状态同步、优化' },
+  { id: 'soft-skills', name: '非技术面', icon: '🟢', desc: '团队管理、项目管理、行为面试' },
+];
+
+const levelMap: Record<number, string> = { 1: '基础', 2: '进阶', 3: '架构', 4: '深度' };
+const levelCounts: Record<string, number> = {};
+for (const q of allQuestions) {
+  const key = `${levelMap[q.data.level]}`;
+  levelCounts[key] = (levelCounts[key] || 0) + 1;
+}
+
+const catCounts: Record<string, number> = {};
+for (const q of allQuestions) {
+  catCounts[q.data.category] = (catCounts[q.data.category] || 0) + 1;
+}
+---
+
+<BaseLayout title="首页">
+  <div class="hero">
+    <h1>🎮 游戏客户端开发面试指南</h1>
+    <p>
+      Cocos Creator / Unity 双引擎 · 结构化渐进深入 · 技术面 + 非技术面全覆盖
+    </p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="num">{allQuestions.length}</div>
+        <div class="label">面试题</div>
+      </div>
+      <div class="hero-stat">
+        <div class="num">{categories.length}</div>
+        <div class="label">分类</div>
+      </div>
+      <div class="hero-stat">
+        <div class="num">4</div>
+        <div class="label">深度层级</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">📂 知识分类</div>
+  <div class="category-grid">
+    {categories.map((cat) => (
+      <a href={`${base}category/${cat.id}/`} class="category-card">
+        <div class="cat-icon">{cat.icon}</div>
+        <h3>{cat.name}</h3>
+        <div class="cat-desc">{cat.desc}</div>
+        <div class="cat-count">{catCounts[cat.id] || 0} 道题目</div>
+      </a>
+    ))}
+  </div>
+</BaseLayout>

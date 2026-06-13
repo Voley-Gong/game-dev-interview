@@ -1,0 +1,139 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+const base = import.meta.env.BASE_URL; // '/game-dev-interview/'
+---
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} | 游戏客户端面试指南</title>
+  <meta name="description" content="游戏客户端开发面试题库 — Cocos Creator / Unity / 编程基础 / 架构设计" />
+  <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a href={base} class="site-logo">
+        <span class="logo-icon">🎮</span>
+        <span>游戏面试指南</span>
+      </a>
+      <div class="header-actions">
+        <button class="theme-toggle" id="search-btn" aria-label="搜索" title="搜索 (Ctrl+K)">🔍</button>
+        <button class="theme-toggle" id="theme-toggle" aria-label="切换主题">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <slot />
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      © 2026 游戏客户端开发面试指南 · 基于 Astro 构建 · 
+      <a href="https://github.com/Voley-Gong/game-dev-interview" target="_blank">GitHub</a>
+    </div>
+  </footer>
+
+  <div id="search-container" style="display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.5);">
+    <div id="pagefind-modal" style="max-width:600px; margin:80px auto; background:var(--bg-card); border-radius:12px; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+      <div id="pagefind-search"></div>
+    </div>
+  </div>
+
+  <script is:inline define:vars={{ pagefindBase: base }}>
+    // Theme toggle
+    (function() {
+      var toggle = document.getElementById('theme-toggle');
+      var stored = localStorage.getItem('theme');
+      if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        toggle.textContent = '☀️';
+      }
+      toggle.addEventListener('click', function() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+        toggle.textContent = isDark ? '🌙' : '☀️';
+        localStorage.setItem('theme', isDark ? 'light' : 'dark');
+      });
+    })();
+
+    // Search — load Pagefind at runtime via script injection
+    (function() {
+      var btn = document.getElementById('search-btn');
+      var container = document.getElementById('search-container');
+      var pagefindLoaded = false;
+      // pagefindBase is injected via define:vars from Astro base config
+      // strip trailing slash for path joining
+      var base = pagefindBase.endsWith('/') ? pagefindBase.slice(0, -1) : pagefindBase;
+
+      function loadPagefind(cb) {
+        if (pagefindLoaded) { cb && cb(); return; }
+        var s = document.createElement('script');
+        s.src = base + '/pagefind/pagefind.js';
+        s.onload = function() {
+          pagefindLoaded = true;
+          // Initialize Pagefind UI
+          var uiScript = document.createElement('script');
+          uiScript.src = base + '/pagefind/pagefind-ui.js';
+          uiScript.onload = function() {
+            if (window.PagefindUI) {
+              new window.PagefindUI({
+                element: '#pagefind-search',
+                showSubResults: true,
+                showImages: false,
+                baseUrl: base + '/'
+              });
+            }
+            cb && cb();
+          };
+          document.head.appendChild(uiScript);
+        };
+        s.onerror = function() {
+          console.warn('Pagefind not available. Build with pagefind first.');
+          document.getElementById('pagefind-search').innerHTML =
+            '<p style="padding:20px;color:var(--text-secondary)">搜索功能需要构建后生效</p>';
+          cb && cb();
+        };
+        document.head.appendChild(s);
+      }
+
+      btn && btn.addEventListener('click', function() {
+        container.style.display = 'block';
+        loadPagefind(function() {
+          var input = container.querySelector('input');
+          input && input.focus();
+        });
+      });
+
+      container && container.addEventListener('click', function(e) {
+        if (e.target === container) container.style.display = 'none';
+      });
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') container.style.display = 'none';
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+          e.preventDefault();
+          container.style.display = container.style.display === 'none' ? 'block' : 'none';
+          if (container.style.display === 'block') {
+            loadPagefind(function() {
+              var input = container.querySelector('input');
+              input && input.focus();
+            });
+          }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
