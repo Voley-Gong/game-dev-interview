@@ -4,7 +4,7 @@ category: "network"
 level: 3
 tags: ["动画同步", "状态机", "插值", "表现层", "网络同步"]
 related: ["network/entity-interpolation", "network/movement-smoothing-compensation", "network/snapshot-delta-sync"]
-hint: "服务器说角色在"攻击第3帧"，客户端的角色还在" idle"，怎么让所有客户端看到流畅且一致的动画？"
+hint: '服务器说角色在"攻击第3帧"，客户端的角色还在" idle"，怎么让所有客户端看到流畅且一致的动画？'
 ---
 
 ## 参考答案
